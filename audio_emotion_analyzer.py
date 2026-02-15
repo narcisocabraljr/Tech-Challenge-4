@@ -28,6 +28,15 @@ class AudioEmotionAnalyzer:
         self.scaler = StandardScaler()
         self.features_history = []
         
+    @staticmethod
+    def check_ffmpeg():
+        """Verifica se o FFmpeg está instalado e acessível."""
+        try:
+            subprocess.run(['ffmpeg', '-version'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            return True
+        except FileNotFoundError:
+            return False
+
     def extract_audio_from_video(self, video_path, output_audio_path=None):
         """
         Extrai a trilha de áudio de um vídeo usando ffmpeg.
@@ -56,8 +65,13 @@ class AudioEmotionAnalyzer:
             ]
             subprocess.run(command, check=True, capture_output=True)
             return output_audio_path
+        except FileNotFoundError:
+            print(f"ERRO: FFmpeg não encontrado. Instale o FFmpeg para habilitar a análise de áudio.")
+            return None
         except subprocess.CalledProcessError as e:
             print(f"Erro ao extrair áudio: {e}")
+            if e.stderr:
+                print(f"Detalhes FFmpeg: {e.stderr.decode('utf-8', errors='ignore')}")
             return None
     
     def extract_acoustic_features(self, audio_path):

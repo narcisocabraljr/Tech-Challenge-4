@@ -1,10 +1,15 @@
+import os
+import glob
+
+# Suppress TensorFlow info/warning logs (must be done before importing deepface/tensorflow)
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+
 import cv2
 import pandas as pd
+import matplotlib.pyplot as plt
 from ultralytics import YOLO
 from deepface import DeepFace
 from tqdm import tqdm
-import glob
-import os
 from audio_emotion_analyzer import AudioEmotionAnalyzer
 
 # =========================
@@ -78,6 +83,26 @@ def process_video(video_path):
     cap.release()
     return results
 
+def plot_emotion_timeline(multimodal_results, video_name, output_dir="outputs"):
+    df = pd.DataFrame(multimodal_results)
+
+    # Converte emoções para números para plotar
+    emotion_map = {e: i for i, e in enumerate(df["combined_emotion"].unique())}
+    df["emotion_code"] = df["combined_emotion"].map(emotion_map)
+
+    plt.figure(figsize=(12, 4))
+    plt.plot(df["frame"], df["emotion_code"], marker='o')
+    plt.yticks(list(emotion_map.values()), list(emotion_map.keys()))
+    plt.xlabel("Frame")
+    plt.ylabel("Emoção")
+    plt.title(f"Timeline Emocional - {video_name}")
+    plt.grid(True)
+
+    output_path = os.path.join(output_dir, f"{video_name}_timeline.png")
+    plt.savefig(output_path)
+    plt.close()
+
+    print(f"  📊 Timeline salva em: {output_path}")
 
 def generate_report(data):
     df = pd.DataFrame(data)
@@ -155,6 +180,8 @@ def process_multimodal_video(video_path, audio_analyzer):
         
         if audio_path:
             audio_result = audio_analyzer.process_audio(audio_path)
+        else:
+            print(f"  ⚠️  Falha na extração de áudio para: {os.path.basename(video_path)}")
     finally:
         # Garante que o arquivo temporário seja deletado mesmo em caso de erro
         if audio_path and os.path.exists(audio_path) and "temp_" in audio_path:
@@ -201,6 +228,13 @@ if __name__ == "__main__":
     downloaded_videos = download_videos()
     audio_analyzer = AudioEmotionAnalyzer()
     
+    # Verifica FFmpeg antes de começar
+    if not audio_analyzer.check_ffmpeg():
+        print("\n" + "!"*60)
+        print("❌ ERRO CRÍTICO: FFmpeg não encontrado no sistema!")
+        print("   A análise de áudio não funcionará. Instale o FFmpeg.")
+        print("!"*60 + "\n")
+
     output_dir = "outputs"
     all_results = []
     all_audio_info = []
@@ -233,6 +267,7 @@ if __name__ == "__main__":
             print(f"  ✓ Anomalia detectada: {audio_info['is_anomaly']}")
             print(f"  ✓ Estabilidade emocional: {audio_info['emotional_stability']}")
             print(f"  ✓ Frames analisados: {len(multimodal_results)}")
+            plot_emotion_timeline(multimodal_results, video_name, output_dir)
             
         except Exception as e:
             error_msg = f"{video_name}: {type(e).__name__}: {str(e)}"
