@@ -115,8 +115,8 @@ def download_videos():
     video_list = glob.glob("RAVDESS/Video_Speech_Actor_*/*.mp4")
     print(f"Total de vídeos encontrados: {len(video_list)}")
     print(f"Primeiros vídeos: {video_list[:3]}")
-    # Processa primeiros 10 vídeos (ajuste conforme necessário)
-    selected = video_list[:10]
+    # Processa primeiros 20 vídeos (ajuste conforme necessário)
+    selected = video_list[:20]
     print(f"\n📹 Selecionados para processamento: {len(selected)} vídeos\n")
     return selected
 
@@ -281,9 +281,9 @@ if __name__ == "__main__":
         df_multimodal = pd.DataFrame(all_results)
         df_audio_summary = pd.DataFrame(all_audio_info)
         
-        # Salva resultados detalhados
-        df_multimodal.to_csv("outputs/multimodal_emotions.csv", index=False)
-        df_audio_summary.to_csv("outputs/audio_analysis_summary.csv", index=False)
+        # Salva resultados detalhados (sep=';' para compatibilidade com Excel pt-BR)
+        df_multimodal.to_csv("outputs/multimodal_emotions.csv", index=False, sep=';')
+        df_audio_summary.to_csv("outputs/audio_analysis_summary.csv", index=False, sep=';')
         
         # Gera resumo estatístico
         print("\n" + "="*50)

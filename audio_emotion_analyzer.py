@@ -198,32 +198,39 @@ class AudioEmotionAnalyzer:
         if hasattr(tempo, '__iter__'):
             tempo = tempo[0] if len(tempo) > 0 else 0
         
-        # Classificação baseada em padrões conhecidos (thresholds refinados)
+        # Classificação baseada em padrões conhecidos (thresholds refinados v2)
         # Ordem de prioridade: condições mais específicas primeiro
         
-        # 1. Tristeza: Baixa energia + pitch baixo + ritmo lento (mais específico)
-        if energy_mean < 0.003 and pitch_mean < 250 and tempo < 100:
+        # 1. Tristeza: Baixa energia + pitch baixo + ritmo lento
+        if energy_mean < 0.0025 and pitch_mean < 250 and tempo < 100:
             return "sad"
         
-        # 2. Raiva: MUITO alta variação de pitch + ritmo elevado + energia moderada
-        elif pitch_std > 750 and tempo > 125 and energy_mean > 0.004:
+        # 2. Raiva: MUITO alta variação de pitch + ritmo elevado + energia alta
+        elif pitch_std > 850 and tempo > 130 and energy_mean > 0.0045:
             return "angry"
         
-        # 3. Medo: Alta variação de pitch + ZCR elevado + energia baixa/moderada
-        elif pitch_std > 550 and zcr_mean > 0.075 and energy_mean < 0.007:
+        # 3. Medo: MUITO alta variação de pitch + ZCR muito elevado + energia baixa
+        # Thresholds mais restritivos para evitar falsos positivos
+        elif pitch_std > 900 and zcr_mean > 0.10 and energy_mean < 0.006:
             return "fear"
         
-        # 4. Surpresa: Variação de energia significativa + pitch variável
-        elif energy_std > 0.004 and pitch_std > 350 and pitch_std < 600:
-            return "surprise"
-        
-        # 5. Felicidade: Pitch alto + ritmo moderado/alto + energia moderada
-        elif pitch_mean > 280 and tempo > 110 and energy_mean > 0.004:
+        # 4. Felicidade: Energia moderada/alta + pitch adequado + ritmo moderado
+        # Ajustado para capturar melhor emoções positivas
+        elif energy_mean > 0.0045 and pitch_mean > 250 and tempo > 120:
             return "happy"
         
-        # 6. Neutro: Qualquer outro padrão (mais estável ou sem características marcantes)
+        # 5. Surpresa: Alta variação de energia + pitch médio-alto
+        elif energy_std > 0.0045 and pitch_std > 400 and pitch_std < 700 and tempo > 110:
+            return "surprise"
+        
+        # 6. Calma/Neutral: Padrões estáveis ou casos que não se encaixam acima
+        # Prioriza calm quando há baixa energia mas não tão extrema
         else:
-            return "neutral"
+            # Se energia é baixa mas não extremamente baixa, pode ser calm
+            if energy_mean < 0.004 and pitch_std < 850:
+                return "neutral"  # Mapeamos calm para neutral para compatibilidade
+            else:
+                return "neutral"
     
     def detect_anomalies(self, features_list, current_features, threshold=2.0):
         """
