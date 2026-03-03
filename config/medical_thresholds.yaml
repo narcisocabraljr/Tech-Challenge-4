@@ -1,0 +1,191 @@
+# ============================================================
+# Limiares Clínicos para Análise Emocional
+# Baseados em literatura de Speech Emotion Recognition e
+# Psicologia Clínica / Psiquiatria
+#
+# Referências:
+#   - El Ayadi et al. (2011). Survey on speech emotion recognition.
+#   - Schuller et al. (2013). Interspeech Emotion Challenge.
+#   - DSM-5: Manual Diagnóstico e Estatístico de Transtornos Mentais
+#   - CID-11: Classificação Internacional de Doenças
+# ============================================================
+
+# --------------------------------------------------------------
+# Limiares de Features Acústicas por Emoção
+# --------------------------------------------------------------
+emotion_thresholds:
+  sad:
+    energy_max: 0.0025      # Fala triste tem amplitude reduzida
+    pitch_max: 250          # Tom de voz baixo / flat
+    tempo_max: 100          # Ritmo lento da fala
+    description: "Baixa energia vocal, pitch reduzido, ritmo lento"
+    clinical_ref: "Compatível com humor deprimido (CID F32, DSM-5 296.2x)"
+
+  angry:
+    pitch_std_min: 850      # Alta variação de tom (agressividade)
+    tempo_min: 130          # Fala acelerada
+    energy_min: 0.0045      # Alta intensidade vocal
+    description: "Alta variação de pitch, ritmo acelerado, intensidade elevada"
+    clinical_ref: "Indicador de agitação psicomotora, episódio maníaco ou transtorno explosivo"
+
+  fear:
+    pitch_std_min: 900      # Voz trêmula (alta variação)
+    zcr_min: 0.10           # Voz irregular / ansiosa
+    energy_max: 0.006       # Voz contida com tensão
+    description: "Voz trêmula, irregular, contida com tensão muscular"
+    clinical_ref: "Compatível com ansiedade, fobia ou PTSD (CID F40-F43)"
+
+  happy:
+    energy_min: 0.0045      # Voz energética
+    pitch_min: 250          # Tom mais agudo
+    tempo_min: 120          # Ritmo animado
+    description: "Voz energética, tom mais agudo, ritmo fluido"
+    clinical_ref: "Afeto positivo normal; em excesso pode indicar hipomania (CID F30)"
+
+  surprise:
+    energy_std_min: 0.0045  # Alta variação de energia (reação súbita)
+    pitch_std_min: 400
+    pitch_std_max: 700
+    tempo_min: 110
+    description: "Variação súbita de energia e pitch"
+    clinical_ref: "Resposta de sobressalto; frequente em PTSD e fobias"
+
+  neutral:
+    description: "Padrão equilibrado, sem marcadores de emoção intensa"
+    clinical_ref: "Afeto normal ou estado de apatia (monitorar duração)"
+
+# --------------------------------------------------------------
+# Limiares Clínicos para Alertas
+# --------------------------------------------------------------
+clinical_alerts:
+  depression_risk:
+    sad_duration_threshold_pct: 50.0   # % de frames com tristeza → risco
+    sad_duration_critical_pct: 70.0    # % de frames com tristeza → crítico
+    low_energy_threshold: 0.002        # Energia extremamente baixa
+    monotony_threshold: 0.15           # Variação de pitch < 15% = fala monótona
+    alert_levels:
+      warning: "Padrão de tristeza prolongado - avaliação recomendada"
+      critical: "Indicadores de humor deprimido severo - intervenção necessária"
+    recommendation: "Avaliação para Transtorno Depressivo Maior (CID F32)"
+    cid_code: "F32 / F33"
+
+  anxiety_risk:
+    fear_frequency_threshold: 3        # Nº de picos de medo em 60s
+    zcr_threshold: 0.12                # ZCR elevado = voz tensa
+    incongruence_threshold: 0.4        # Incongruência audio/visual
+    alert_levels:
+      warning: "Sinais de ansiedade detectados - monitoramento recomendado"
+      critical: "Possível crise de pânico - avaliação imediata"
+    recommendation: "Avaliação para Transtorno de Ansiedade Generalizada (CID F41)"
+    cid_code: "F40 / F41"
+
+  agitation_risk:
+    angry_duration_threshold_pct: 30.0
+    energy_threshold: 0.006
+    alert_levels:
+      warning: "Agitação emocional detectada"
+      critical: "Agitação severa - risco de comportamento disruptivo"
+    recommendation: "Intervenção clínica imediata para controle de agitação"
+    cid_code: "F30 / F91"
+
+  incongruence_alert:
+    threshold: 0.5                     # Score de incongruência audio/visual
+    description: "Emoção facial não corresponde ao tom de voz"
+    clinical_note: "Indicador de regulação emocional prejudicada ou dissociação"
+    cid_code: "F44 / F60"
+
+  emotional_instability:
+    unstable_cv_threshold: 0.5        # Coeficiente de variação
+    description: "Alta variação emocional em curto período"
+    clinical_note: "Labilidade afetiva - observada em transtorno borderline e mania"
+    cid_code: "F31 / F60.3"
+
+# --------------------------------------------------------------
+# Classificação de Gravidade / Risk Scores
+# --------------------------------------------------------------
+risk_scores:
+  depression:
+    components:
+      - name: "sad_pct"
+        weight: 0.4
+        description: "% de tempo em tristeza"
+      - name: "low_energy"
+        weight: 0.3
+        description: "Baixa energia vocal"
+      - name: "monotony"
+        weight: 0.2
+        description: "Monotonia de pitch"
+      - name: "emotional_instability"
+        weight: 0.1
+        description: "Estabilidade emocional"
+    thresholds:
+      low: 3.0
+      moderate: 5.0
+      high: 7.0
+      critical: 8.5
+
+  anxiety:
+    components:
+      - name: "fear_pct"
+        weight: 0.35
+        description: "% de tempo com medo"
+      - name: "zcr_elevation"
+        weight: 0.3
+        description: "Voz irregular/tensa"
+      - name: "incongruence"
+        weight: 0.2
+        description: "Incongruência audio/visual"
+      - name: "instability"
+        weight: 0.15
+        description: "Variação emocional"
+    thresholds:
+      low: 2.5
+      moderate: 4.5
+      high: 6.5
+      critical: 8.0
+
+# --------------------------------------------------------------
+# Mapeamento de Emoções para Domínio Clínico
+# --------------------------------------------------------------
+emotion_clinical_mapping:
+  sad:
+    portuguese: "Tristeza"
+    clinical_term: "Humor deprimido"
+    valence: "negative"
+    arousal: "low"
+
+  angry:
+    portuguese: "Raiva"
+    clinical_term: "Irritabilidade / Agitação"
+    valence: "negative"
+    arousal: "high"
+
+  fear:
+    portuguese: "Medo"
+    clinical_term: "Ansiedade / Resposta de alarme"
+    valence: "negative"
+    arousal: "high"
+
+  happy:
+    portuguese: "Alegria"
+    clinical_term: "Afeto positivo"
+    valence: "positive"
+    arousal: "high"
+
+  surprise:
+    portuguese: "Surpresa"
+    clinical_term: "Reatividade emocional"
+    valence: "neutral"
+    arousal: "high"
+
+  neutral:
+    portuguese: "Neutro"
+    clinical_term: "Afeto neutro / Apatia"
+    valence: "neutral"
+    arousal: "low"
+
+  disgust:
+    portuguese: "Nojo"
+    clinical_term: "Aversão"
+    valence: "negative"
+    arousal: "medium"

@@ -492,17 +492,3 @@ threshold = 2.0  # Z-score threshold para detecção de anomalias
 ## 📝 Licença
 
 Este projeto é parte do Tech Challenge 4 e está disponível para fins educacionais.
-
-## 👥 Contribuidores
-
-- **Narciso** - Desenvolvimento da análise de sentimentos em vídeos
-- **Danilo Bassi** - Desenvolvimento do pipeline multimodal e integração de áudio
-- **Danilo Silva** - 
-- **Gabriel** - 
-- **Augusto** - 
-
-## 📞 Contato
-
-Para dúvidas ou sugestões, abra uma issue no repositório.
-
----

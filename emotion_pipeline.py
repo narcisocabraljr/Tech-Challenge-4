@@ -1,4 +1,5 @@
 import os
+import sys
 import glob
 
 # Suppress TensorFlow info/warning logs (must be done before importing deepface/tensorflow)
@@ -11,6 +12,15 @@ from ultralytics import YOLO
 from deepface import DeepFace
 from tqdm import tqdm
 from audio_emotion_analyzer import AudioEmotionAnalyzer
+
+# Módulos internos
+sys.path.insert(0, os.path.dirname(__file__))
+from src.multimodal_fusion import (
+    fuse_emotions_advanced,
+    assess_visual_quality,
+    assess_audio_quality,
+)
+from src.clinical import ClinicalEvaluator, MedicalReportGenerator
 
 # =========================
 # CONFIGURAÇÕES
@@ -121,40 +131,30 @@ def download_videos():
     return selected
 
 
-def combine_audio_visual_emotions(visual_emotion, audio_emotion, audio_confidence=0.3):
+def combine_audio_visual_emotions(visual_emotion, audio_emotion,
+                                   visual_quality=0.7, audio_quality=0.7):
     """
-    Combina emoções detectadas por áudio e vídeo usando fusão multimodal.
-    
+    Combina emoções detectadas por áudio e vídeo usando fusão multimodal avançada.
+
+    Utiliza o módulo src.multimodal_fusion que implementa:
+    - Pesos adaptativos baseados na qualidade de cada modalidade
+    - Detecção de incongruência emocional (0.0 = concordância, 1.0 = oposição)
+    - Estratégias semânticas (neutro visual → prioriza áudio; neutro áudio → prioriza visual)
+
     Args:
-        visual_emotion: Emoção detectada pela análise facial
-        audio_emotion: Emoção detectada pela análise de áudio
-        audio_confidence: Peso da emoção de áudio (0-1)
-        
+        visual_emotion: Emoção detectada pela análise facial (DeepFace)
+        audio_emotion: Emoção detectada pela análise acústica (Librosa)
+        visual_quality: Score de qualidade da análise visual (0-1)
+        audio_quality: Score de qualidade da análise de áudio (0-1)
+
     Returns:
-        Emoção combinada
+        Tupla: (emoção_combinada, confidence_label, incongruence_score,
+                visual_weight, audio_weight)
     """
-    # Se ambas são iguais, retorna com confiança alta
-    if visual_emotion == audio_emotion:
-        return visual_emotion, "high_confidence"
-    
-    # Se uma delas é None, retorna a outra
-    if visual_emotion is None:
-        return audio_emotion, "audio_only"
-    if audio_emotion is None:
-        return visual_emotion, "visual_only"
-    
-    # Se áudio é neutral mas visual não é, prioriza visual
-    # (áudio neutral é menos informativo)
-    if audio_emotion == "neutral" and visual_emotion != "neutral":
-        return visual_emotion, "visual_priority"
-    
-    # Se visual é neutral mas áudio não é, prioriza áudio
-    if visual_emotion == "neutral" and audio_emotion != "neutral":
-        return audio_emotion, "audio_priority"
-    
-    # Em caso de conflito entre emoções não-neutras
-    # Prioriza VISUAL (DeepFace é mais confiável que heurísticas)
-    return visual_emotion, "visual_priority"
+    combined, confidence, incongruence, vw, aw = fuse_emotions_advanced(
+        visual_emotion, audio_emotion, visual_quality, audio_quality
+    )
+    return combined, confidence, incongruence, vw, aw
 
 
 def process_multimodal_video(video_path, audio_analyzer):
@@ -193,21 +193,35 @@ def process_multimodal_video(video_path, audio_analyzer):
     # Combina resultados
     multimodal_results = []
     
+    # Calcula qualidade do áudio uma vez por vídeo
+    audio_features = audio_result.get('features') if audio_result else None
+    audio_qual = assess_audio_quality(audio_features)
+
     for visual_data in visual_results:
         audio_emotion = audio_result['emotion'] if audio_result else None
         visual_emotion = visual_data['emotion']
-        
-        combined_emotion, confidence = combine_audio_visual_emotions(
-            visual_emotion, 
-            audio_emotion
+
+        # Qualidade visual = confiança da detecção YOLO (default 0.7 quando não disponível)
+        visual_qual = assess_visual_quality(0.7, visual_emotion is not None)
+
+        combined_emotion, confidence, incongruence, vw, aw = combine_audio_visual_emotions(
+            visual_emotion,
+            audio_emotion,
+            visual_quality=visual_qual,
+            audio_quality=audio_qual,
         )
-        
+
         multimodal_results.append({
             "frame": visual_data['frame'],
             "visual_emotion": visual_emotion,
             "audio_emotion": audio_emotion,
             "combined_emotion": combined_emotion,
-            "confidence": confidence
+            "confidence": confidence,
+            "incongruence_score": round(incongruence, 3),
+            "visual_weight": round(vw, 3),
+            "audio_weight": round(aw, 3),
+            "visual_quality": round(visual_qual, 3),
+            "audio_quality": round(audio_qual, 3),
         })
     
     # Adiciona informações de áudio ao resultado
@@ -280,39 +294,100 @@ if __name__ == "__main__":
     if all_results:
         df_multimodal = pd.DataFrame(all_results)
         df_audio_summary = pd.DataFrame(all_audio_info)
-        
+
         # Salva resultados detalhados (sep=';' para compatibilidade com Excel pt-BR)
         df_multimodal.to_csv("outputs/multimodal_emotions.csv", index=False, sep=';')
         df_audio_summary.to_csv("outputs/audio_analysis_summary.csv", index=False, sep=';')
-        
+
         # Gera resumo estatístico
         print("\n" + "="*50)
         print("RESUMO DA ANÁLISE MULTIMODAL")
         print("="*50)
-        
+
         print("\n📊 Distribuição de Emoções Combinadas:")
         combined_summary = df_multimodal["combined_emotion"].value_counts(normalize=True) * 100
         for emotion, pct in combined_summary.items():
             print(f"  {emotion}: {pct:.2f}%")
-        
+
         print("\n🎵 Análise de Áudio:")
         audio_emotion_summary = df_audio_summary["audio_emotion"].value_counts(normalize=True) * 100
         for emotion, pct in audio_emotion_summary.items():
             print(f"  {emotion}: {pct:.2f}%")
-        
+
         print("\n⚠️ Anomalias Detectadas:")
         anomaly_count = df_audio_summary["is_anomaly"].sum()
         total_videos = len(df_audio_summary)
         print(f"  {anomaly_count} de {total_videos} vídeos ({anomaly_count/total_videos*100:.1f}%)")
-        
+
         print("\n💚 Estabilidade Emocional:")
         stability_summary = df_audio_summary["emotional_stability"].value_counts()
         for stability, count in stability_summary.items():
             print(f"  {stability}: {count} vídeos")
-        
+
+        # ── AVALIAÇÃO CLÍNICA CONSOLIDADA ──────────────────────────────────
+        print("\n" + "="*50)
+        print("🏥 AVALIAÇÃO CLÍNICA DA SESSÃO")
+        print("="*50)
+
+        try:
+            evaluator = ClinicalEvaluator()
+            reporter = MedicalReportGenerator()
+
+            # Usa features do primeiro vídeo como referência geral
+            ref_audio_features = None
+            if all_audio_info and all_audio_info[0].get("audio_features"):
+                ref_audio_features = all_audio_info[0]["audio_features"]
+
+            incongruence_avg = (
+                df_multimodal["incongruence_score"].mean()
+                if "incongruence_score" in df_multimodal.columns else 0.0
+            )
+            stability_mode = (
+                df_audio_summary["emotional_stability"].mode()[0]
+                if not df_audio_summary.empty else "stable"
+            )
+
+            clinical_eval = evaluator.evaluate(
+                results_df=df_multimodal,
+                audio_features=ref_audio_features,
+                incongruence_score=float(incongruence_avg),
+                stability=str(stability_mode),
+            )
+
+            summary = reporter.generate_summary_dict(clinical_eval)
+            print(f"\n  Nível de Alerta Geral : {summary['overall_alert_level'].upper()}")
+            print(f"  Emoção Dominante      : {summary['dominant_emotion']} ({summary['dominant_pct']:.1f}%)")
+            print(f"  Concordância A/V      : {summary['modality_agreement_pct']:.1f}%")
+            print(f"  Incongruência Média   : {summary['incongruence_score']:.3f}")
+            print(f"\n  Score Depressão       : {summary['depression_score']:.1f}/10 ({summary['depression_level']})")
+            print(f"  Score Ansiedade       : {summary['anxiety_score']:.1f}/10 ({summary['anxiety_level']})")
+            print(f"  Score Agitação        : {summary['agitation_score']:.1f}/10 ({summary['agitation_level']})")
+
+            if clinical_eval["active_alerts"]:
+                print(f"\n  ⚠️  {len(clinical_eval['active_alerts'])} alerta(s) clínico(s) ativo(s)")
+                for alert in clinical_eval["active_alerts"]:
+                    print(f"    • {alert['condition']}: {alert['risk_level']}")
+            else:
+                print("\n  ✅ Nenhum alerta clínico ativo")
+
+            # Gera relatório médico em Markdown
+            report_md = reporter.generate(
+                clinical_evaluation=clinical_eval,
+                video_filename=f"{len(downloaded_videos)} vídeos RAVDESS",
+                total_frames=len(df_multimodal),
+            )
+            report_path = os.path.join(output_dir, "clinical_report.md")
+            with open(report_path, "w", encoding="utf-8") as f:
+                f.write(report_md)
+            print(f"\n  📄 Relatório clínico salvo em: {report_path}")
+
+        except Exception as e:
+            print(f"\n  ⚠️  Avaliação clínica não concluída: {e}")
+
         print("\n✅ Relatórios salvos em:")
         print("  - outputs/multimodal_emotions.csv")
         print("  - outputs/audio_analysis_summary.csv")
+        print("  - outputs/clinical_report.md")
     else:
         print("\n⚠️ Nenhum resultado para processar.")
     
