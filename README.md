@@ -145,7 +145,76 @@ Acurácia: 6/6 (100.0%) ✅
 - ✅ Sistema de confiança baseado em concordância entre modalidades
 - ✅ Resolução de conflitos entre análises
 
-## 📦 Instalação
+## �️ Interface Web (Dashboard Clínico)
+
+O projeto inclui um dashboard médico interativo construído com **Streamlit** que permite:
+
+- Upload de vídeos para análise em tempo real
+- Visualização de resultados de sessões já processadas
+- Gráficos de timeline emocional e distribuição por modalidade
+- Avaliação clínica com scores de depressão, ansiedade e agitação
+- Geração e download de relatório médico estruturado
+- Alertas clínicos com classificação por nível de risco
+
+### ▶️ Como Rodar a Interface
+
+**1. Ative o ambiente virtual (se ainda não estiver ativo):**
+```powershell
+# Windows PowerShell
+.\venv\Scripts\Activate.ps1
+```
+
+**2. Inicie o Streamlit:**
+```powershell
+# Windows (com venv ativo)
+streamlit run app_streamlit.py
+
+# Ou diretamente pelo executável do venv
+.\venv\Scripts\streamlit.exe run app_streamlit.py
+```
+
+**3. Acesse no navegador:**
+```
+http://localhost:8501
+```
+
+### 📋 Modos de Uso da Interface
+
+#### Modo 1 — Carregar Resultados Existentes
+Visualize e analise resultados de um processamento já realizado pelo `emotion_pipeline.py`:
+1. Execute o pipeline primeiro: `.\venv\Scripts\python.exe emotion_pipeline.py`
+2. Inicie o Streamlit: `streamlit run app_streamlit.py`
+3. Selecione **"📂 Carregar Resultados Existentes"** na barra lateral
+4. O caminho padrão `outputs/multimodal_emotions.csv` é carregado automaticamente
+5. Filtre por vídeo e navegue pelas 4 abas de análise
+
+#### Modo 2 — Analisar Novo Vídeo
+Faça upload de qualquer vídeo para análise direta pela interface:
+1. Selecione **"🎬 Analisar Novo Vídeo"** na barra lateral
+2. Faça upload do arquivo (`.mp4`, `.avi`, `.mov`, `.mkv`)
+3. Clique em **"🔍 Iniciar Análise Multimodal"**
+4. Aguarde o processamento (30s a 2 min dependendo do vídeo)
+5. Visualize resultados, gráficos e relatório clínico
+
+### 🗂️ Abas Disponíveis
+
+| Aba | Conteúdo |
+|-----|----------|
+| **📈 Timeline Emocional** | Gráfico de evolução das emoções por frame + distribuição de confiança da fusão |
+| **📊 Distribuição de Emoções** | Gráficos comparativos visual / áudio / combinado + tabela por emoção |
+| **🏥 Avaliação Clínica** | Scores de depressão, ansiedade e agitação (0–10) com alertas e recomendações |
+| **📄 Relatório Médico** | Relatório em formato de prontuário clínico com download em `.md` |
+
+### ⚠️ Requisito Adicional
+
+Caso o Streamlit não esteja instalado:
+```powershell
+pip install streamlit
+```
+
+---
+
+## �📦 Instalação
 
 ### Pré-requisitos
 
@@ -210,21 +279,36 @@ pip install -r requirements.txt
 
 ```
 Tech-Challenge-4/
-├── emotion_pipeline.py          # Pipeline principal (análise multimodal)
-├── audio_emotion_analyzer.py    # Módulo de análise de áudio
-├── requirements.txt              # Dependências do projeto
-├── README.md                     # Esta documentação
-├── yolov8n.pt                   # Modelo YOLO pré-treinado
-├── .gitignore                   # Arquivos ignorados pelo Git
-├── RAVDESS/                     # Dataset de vídeos (240 vídeos)
+├── emotion_pipeline.py              # Pipeline principal (análise multimodal)
+├── audio_emotion_analyzer.py        # Módulo de análise de áudio
+├── app_streamlit.py                 # Interface web (dashboard clínico)
+├── requirements.txt                 # Dependências do projeto
+├── README.md                        # Esta documentação
+├── yolov8n.pt                       # Modelo YOLO pré-treinado
+├── .gitignore                       # Arquivos ignorados pelo Git
+│
+├── src/                             # Módulos internos
+│   ├── multimodal_fusion.py         # Fusão multimodal avançada (pesos adaptativos)
+│   └── clinical/
+│       ├── clinical_analyzer.py     # Avaliadores clínicos (depressão, ansiedade, agitação)
+│       └── medical_report.py        # Gerador de relatório em formato prontuário
+│
+├── config/
+│   └── medical_thresholds.yaml      # Limiares clínicos (DSM-5 / CID-11)
+│
+├── RAVDESS/                         # Dataset de vídeos (240 vídeos)
 │   ├── Video_Speech_Actor_02/
 │   ├── Video_Speech_Actor_04/
 │   └── ...
-├── outputs/                      # Resultados da análise
-│   ├── multimodal_emotions.csv   # Emoções combinadas (frame-a-frame)
-│   ├── audio_analysis_summary.csv # Resumo da análise de áudio
-│   └── processing_errors.log     # Log de erros (se houver)
-└── venv/                         # Ambiente virtual Python (não versionado)
+│
+├── outputs/                         # Resultados da análise
+│   ├── multimodal_emotions.csv      # Emoções combinadas (frame-a-frame)
+│   ├── audio_analysis_summary.csv   # Resumo da análise de áudio por vídeo
+│   ├── clinical_report.md           # Relatório clínico gerado pelo pipeline
+│   ├── *_timeline.png               # Timelines emocionais (1 por vídeo)
+│   └── processing_errors.log        # Log de erros (se houver)
+│
+└── venv/                            # Ambiente virtual Python (não versionado)
 ```
 
 ## 🎮 Uso
